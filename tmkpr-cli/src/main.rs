@@ -78,6 +78,9 @@ fn run() -> anyhow::Result<()> {
             color,
             &config,
         )?,
+        Commands::Continue => {
+            commands::continue_tracking::run(storage.as_ref(), &user_id, &date_fmt, color, &config)?
+        }
         Commands::Stop(args) => commands::stop::run(
             args,
             storage.as_ref(),

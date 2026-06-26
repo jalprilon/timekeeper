@@ -39,6 +39,10 @@ pub enum Commands {
     #[command(aliases = ["track", "s"])]
     Start(StartArgs),
 
+    /// Continue the last completed task from now
+    #[command(alias = "cont")]
+    Continue,
+
     /// Stop the current tracking session
     #[command(aliases = ["finish", "x"])]
     Stop(StopArgs),

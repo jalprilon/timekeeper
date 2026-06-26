@@ -1,6 +1,7 @@
 pub mod comment;
 pub mod completion;
 pub mod config;
+pub mod continue_tracking;
 pub mod delete;
 pub mod edit;
 pub mod event;
