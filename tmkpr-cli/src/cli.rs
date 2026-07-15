@@ -53,7 +53,7 @@ pub enum Commands {
 
     /// Show the currently active entry
     #[command(alias = "st")]
-    Status,
+    Status(StatusArgs),
 
     /// List time entries
     #[command(alias = "ls")]
@@ -119,6 +119,15 @@ pub enum Commands {
     /// Launch the tmkpr-pomodoro timer
     #[command(aliases = ["pomo", "p25"])]
     Pomodoro(LaunchArgs),
+}
+
+// ── Status ────────────────────────────────────────────────────────────────────
+
+#[derive(Args, Default)]
+pub struct StatusArgs {
+    /// Show only total tracked time for today
+    #[arg(long)]
+    pub today: bool,
 }
 
 // ── Start ─────────────────────────────────────────────────────────────────────

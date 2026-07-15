@@ -180,6 +180,46 @@ impl<'a> EntryService<'a> {
         }))
     }
 
+    pub fn today_total(&self) -> TmkprResult<Duration> {
+        let today = Local::now().date_naive();
+        self.total_for_local_day(today, Utc::now())
+    }
+
+    pub fn total_for_local_day(
+        &self,
+        date: NaiveDate,
+        now: DateTime<Utc>,
+    ) -> TmkprResult<Duration> {
+        let day_start = local_midnight_utc(date);
+        let day_end = local_midnight_utc(date + Duration::days(1));
+        let effective_end = now.min(day_end);
+
+        if effective_end <= day_start {
+            return Ok(Duration::zero());
+        }
+
+        let entries = self.storage.list_entries(&EntryFilter {
+            user_id: self.user_id.to_string(),
+            until: Some(day_end),
+            include_active: true,
+            ..Default::default()
+        })?;
+
+        let total_secs = entries
+            .iter()
+            .filter_map(|entry| {
+                let start = entry.started_at.max(day_start);
+                let end = entry
+                    .finished_at
+                    .unwrap_or(effective_end)
+                    .min(effective_end);
+                (end > start).then_some(end.signed_duration_since(start).num_seconds())
+            })
+            .sum();
+
+        Ok(Duration::seconds(total_secs))
+    }
+
     pub fn list(&self, filter: EntryFilter) -> TmkprResult<Vec<Entry>> {
         self.storage.list_entries(&filter)
     }
@@ -603,7 +643,7 @@ impl<'a> EntryService<'a> {
 mod tests {
     use super::*;
     use crate::error::TmkprError;
-    use crate::models::entry::UpdateEntry;
+    use crate::models::entry::{NewEntry, UpdateEntry};
     use crate::models::LOCAL_USER_ID;
     use crate::service::{ProjectService, TaskService};
     use crate::storage::sqlite::SqliteStorage;
@@ -614,6 +654,23 @@ mod tests {
 
     fn svc(s: &dyn Storage) -> EntryService<'_> {
         EntryService::new(s, LOCAL_USER_ID)
+    }
+
+    fn create_entry(
+        s: &dyn Storage,
+        started_at: DateTime<Utc>,
+        finished_at: Option<DateTime<Utc>>,
+    ) {
+        s.create_entry(NewEntry {
+            user_id: LOCAL_USER_ID.to_string(),
+            project_id: None,
+            task_id: None,
+            note: None,
+            started_at,
+            finished_at,
+            tags: vec![],
+        })
+        .unwrap();
     }
 
     fn setup(s: &dyn Storage) -> (String, String) {
@@ -718,6 +775,78 @@ mod tests {
         let stopped = svc(&s).stop(Some(end)).unwrap();
         let dur = stopped.duration().unwrap().num_seconds();
         assert!((3599..=3601).contains(&dur));
+    }
+
+    #[test]
+    fn total_for_local_day_returns_zero_without_entries() {
+        let s = storage();
+        let date = Local::now().date_naive();
+        let now = local_midnight_utc(date) + Duration::hours(12);
+
+        assert_eq!(
+            svc(&s).total_for_local_day(date, now).unwrap(),
+            Duration::zero()
+        );
+    }
+
+    #[test]
+    fn total_for_local_day_counts_finished_entry_today() {
+        let s = storage();
+        let date = Local::now().date_naive();
+        let start = local_midnight_utc(date) + Duration::hours(9);
+        create_entry(&s, start, Some(start + Duration::minutes(10)));
+
+        let total = svc(&s)
+            .total_for_local_day(date, start + Duration::hours(2))
+            .unwrap();
+
+        assert_eq!(total, Duration::minutes(10));
+    }
+
+    #[test]
+    fn total_for_local_day_includes_active_entry_until_now() {
+        let s = storage();
+        let date = Local::now().date_naive();
+        let start = local_midnight_utc(date) + Duration::hours(9);
+        create_entry(&s, start, None);
+
+        let total = svc(&s)
+            .total_for_local_day(date, start + Duration::minutes(25))
+            .unwrap();
+
+        assert_eq!(total, Duration::minutes(25));
+    }
+
+    #[test]
+    fn total_for_local_day_clamps_overnight_entry_to_today() {
+        let s = storage();
+        let date = Local::now().date_naive();
+        let day_start = local_midnight_utc(date);
+        create_entry(
+            &s,
+            day_start - Duration::hours(2),
+            Some(day_start + Duration::minutes(45)),
+        );
+
+        let total = svc(&s)
+            .total_for_local_day(date, day_start + Duration::hours(1))
+            .unwrap();
+
+        assert_eq!(total, Duration::minutes(45));
+    }
+
+    #[test]
+    fn total_for_local_day_clamps_overnight_active_entry_to_today() {
+        let s = storage();
+        let date = Local::now().date_naive();
+        let day_start = local_midnight_utc(date);
+        create_entry(&s, day_start - Duration::hours(2), None);
+
+        let total = svc(&s)
+            .total_for_local_day(date, day_start + Duration::minutes(30))
+            .unwrap();
+
+        assert_eq!(total, Duration::minutes(30));
     }
 
     #[test]

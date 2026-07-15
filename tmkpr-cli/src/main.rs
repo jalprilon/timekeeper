@@ -11,8 +11,8 @@ use tmkpr_lib::config::Config;
 use tmkpr_lib::storage::open_sqlite;
 
 use cli::{
-    Cli, Commands, CommentCommands, ConfigCommands, EventCommands, ProjectCommands, TagCommands,
-    TaskCommands,
+    Cli, Commands, CommentCommands, ConfigCommands, EventCommands, ProjectCommands, StatusArgs,
+    TagCommands, TaskCommands,
 };
 
 fn main() {
@@ -68,7 +68,10 @@ fn run() -> anyhow::Result<()> {
     let db_path = cli.db.unwrap_or_else(|| config.database.path.clone());
     let storage = open_sqlite(&db_path)?;
 
-    match cli.command.unwrap_or(Commands::Status) {
+    match cli
+        .command
+        .unwrap_or(Commands::Status(StatusArgs::default()))
+    {
         Commands::Start(args) => commands::track::run(
             args,
             storage.as_ref(),
@@ -98,8 +101,8 @@ fn run() -> anyhow::Result<()> {
             color,
             &config,
         )?,
-        Commands::Status => {
-            commands::status::run(storage.as_ref(), &user_id, &date_fmt, format, color)?
+        Commands::Status(args) => {
+            commands::status::run(args, storage.as_ref(), &user_id, &date_fmt, format, color)?
         }
         Commands::List(args) => commands::list::run(
             args,

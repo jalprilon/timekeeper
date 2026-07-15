@@ -24,6 +24,19 @@ pub fn format_duration(secs: i64) -> String {
     }
 }
 
+pub fn format_duration_minutes(secs: i64) -> String {
+    let secs = secs.max(0);
+    let total_minutes = secs / 60;
+    let h = total_minutes / 60;
+    let m = total_minutes % 60;
+
+    if h > 0 {
+        format!("{}h {}m", h, m)
+    } else {
+        format!("{}m", m)
+    }
+}
+
 pub fn format_datetime(dt: &DateTime<Utc>, fmt: &str) -> String {
     dt.with_timezone(&Local).format(fmt).to_string()
 }
@@ -896,7 +909,7 @@ mod tests {
     }
 
     #[test]
-    fn format_duration_minutes() {
+    fn format_duration_with_seconds_for_minutes() {
         assert_eq!(format_duration(60), "1m 00s");
         assert_eq!(format_duration(90), "1m 30s");
         assert_eq!(format_duration(3599), "59m 59s");
@@ -913,6 +926,15 @@ mod tests {
     fn format_duration_negative_clamps_to_zero() {
         assert_eq!(format_duration(-1), "0s");
         assert_eq!(format_duration(-3600), "0s");
+    }
+
+    #[test]
+    fn format_duration_minutes_for_today_total() {
+        assert_eq!(format_duration_minutes(0), "0m");
+        assert_eq!(format_duration_minutes(59), "0m");
+        assert_eq!(format_duration_minutes(600), "10m");
+        assert_eq!(format_duration_minutes(4245), "1h 10m");
+        assert_eq!(format_duration_minutes(-1), "0m");
     }
 
     // ── csv_escape ───────────────────────────────────────────────────────────

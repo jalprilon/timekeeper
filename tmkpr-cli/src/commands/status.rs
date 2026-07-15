@@ -2,9 +2,11 @@ use anyhow::Result;
 use tmkpr_lib::service::EntryService;
 use tmkpr_lib::storage::Storage;
 
+use crate::cli::StatusArgs;
 use crate::output::{self, ProjectIndex, TaskIndex};
 
 pub fn run(
+    args: StatusArgs,
     storage: &dyn Storage,
     user_id: &str,
     date_fmt: &str,
@@ -12,6 +14,12 @@ pub fn run(
     color: bool,
 ) -> Result<()> {
     let svc = EntryService::new(storage, user_id);
+    if args.today {
+        let total = svc.today_total()?;
+        println!("{}", output::format_duration_minutes(total.num_seconds()));
+        return Ok(());
+    }
+
     match svc.status()? {
         None => {
             if format == "json" {
