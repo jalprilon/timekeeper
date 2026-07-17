@@ -37,6 +37,25 @@ pub fn format_duration_minutes(secs: i64) -> String {
     }
 }
 
+fn truncate_chars(s: &str, max_chars: usize) -> String {
+    s.chars().take(max_chars).collect()
+}
+
+fn format_duration_with_seconds(secs: i64) -> String {
+    let secs = secs.max(0);
+    let h = secs / 3600;
+    let m = (secs % 3600) / 60;
+    let s = secs % 60;
+
+    if h > 0 {
+        format!("{}h {}m {:02}s", h, m, s)
+    } else if m > 0 {
+        format!("{}m {:02}s", m, s)
+    } else {
+        format!("{}s", s)
+    }
+}
+
 pub fn format_datetime(dt: &DateTime<Utc>, fmt: &str) -> String {
     dt.with_timezone(&Local).format(fmt).to_string()
 }
@@ -396,6 +415,29 @@ pub fn print_status(
             started,
         );
     }
+}
+
+pub fn status_bar_label(entry: &Entry, projects: &ProjectIndex, tasks: &TaskIndex) -> String {
+    let label = entry
+        .task_id
+        .as_deref()
+        .map(|id| tasks.name(id))
+        .or_else(|| entry.project_id.as_deref().map(|id| projects.name(id)))
+        .unwrap_or_else(|| "Tracking".to_string());
+
+    truncate_chars(&label, 20)
+}
+
+pub fn format_status_bar(entry: &Entry, projects: &ProjectIndex, tasks: &TaskIndex) -> String {
+    format!(
+        "{} {}",
+        status_bar_label(entry, projects, tasks),
+        format_duration_with_seconds(entry.elapsed().num_seconds())
+    )
+}
+
+pub fn print_status_bar(entry: &Entry, projects: &ProjectIndex, tasks: &TaskIndex) {
+    println!("{}", format_status_bar(entry, projects, tasks));
 }
 
 // ── Gaps table ────────────────────────────────────────────────────────────────
@@ -896,6 +938,8 @@ fn print_json<T: serde::Serialize + ?Sized>(value: &T) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::TimeZone;
+    use tmkpr_lib::models::entry::Entry;
     use tmkpr_lib::models::project::Project;
     use tmkpr_lib::models::task::Task;
 
@@ -991,6 +1035,22 @@ mod tests {
         }
     }
 
+    fn make_entry(project_id: Option<&str>, task_id: Option<&str>, elapsed_secs: i64) -> Entry {
+        let started_at = chrono::Utc.with_ymd_and_hms(2024, 1, 1, 9, 0, 0).unwrap();
+        Entry {
+            id: "e1".to_string(),
+            user_id: "u1".to_string(),
+            project_id: project_id.map(str::to_string),
+            task_id: task_id.map(str::to_string),
+            note: None,
+            started_at,
+            finished_at: Some(started_at + chrono::Duration::seconds(elapsed_secs)),
+            tags: vec![],
+            created_at: started_at,
+            updated_at: started_at,
+        }
+    }
+
     #[test]
     fn project_index_found() {
         let idx = ProjectIndex(vec![make_project("p1", "Alpha")]);
@@ -1013,6 +1073,30 @@ mod tests {
     fn task_index_missing_falls_back_to_id() {
         let idx = TaskIndex(vec![]);
         assert_eq!(idx.name("missing"), "missing");
+    }
+
+    #[test]
+    fn format_status_bar_prefers_task_and_truncates_to_twenty_chars() {
+        let projects = ProjectIndex(vec![make_project("p1", "Project")]);
+        let tasks = TaskIndex(vec![make_task("t1", "1234567890123456789012345")]);
+        let entry = make_entry(Some("p1"), Some("t1"), 4980);
+
+        assert_eq!(
+            format_status_bar(&entry, &projects, &tasks),
+            "12345678901234567890 1h 23m 00s"
+        );
+    }
+
+    #[test]
+    fn format_status_bar_falls_back_to_project() {
+        let projects = ProjectIndex(vec![make_project("p1", "Timekeeper")]);
+        let tasks = TaskIndex(vec![]);
+        let entry = make_entry(Some("p1"), None, 600);
+
+        assert_eq!(
+            format_status_bar(&entry, &projects, &tasks),
+            "Timekeeper 10m 00s"
+        );
     }
 
     // ── short_id ─────────────────────────────────────────────────────────────

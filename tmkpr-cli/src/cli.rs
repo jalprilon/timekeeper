@@ -128,6 +128,10 @@ pub struct StatusArgs {
     /// Show only total tracked time for today
     #[arg(long)]
     pub today: bool,
+
+    /// Show compact toolbar-friendly status
+    #[arg(long)]
+    pub bar: bool,
 }
 
 // ── Start ─────────────────────────────────────────────────────────────────────
