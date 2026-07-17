@@ -429,11 +429,18 @@ pub fn status_bar_label(entry: &Entry, projects: &ProjectIndex, tasks: &TaskInde
 }
 
 pub fn format_status_bar(entry: &Entry, projects: &ProjectIndex, tasks: &TaskIndex) -> String {
-    format!(
+    let mut status = format!(
         "{} {}",
         status_bar_label(entry, projects, tasks),
         format_duration_with_seconds(entry.elapsed().num_seconds())
-    )
+    );
+
+    if let Some(note) = entry.note.as_deref().filter(|note| !note.is_empty()) {
+        status.push(' ');
+        status.push_str(&truncate_chars(note, 20));
+    }
+
+    status
 }
 
 pub fn print_status_bar(entry: &Entry, projects: &ProjectIndex, tasks: &TaskIndex) {
@@ -1051,6 +1058,18 @@ mod tests {
         }
     }
 
+    fn make_entry_with_note(
+        project_id: Option<&str>,
+        task_id: Option<&str>,
+        elapsed_secs: i64,
+        note: &str,
+    ) -> Entry {
+        Entry {
+            note: Some(note.to_string()),
+            ..make_entry(project_id, task_id, elapsed_secs)
+        }
+    }
+
     #[test]
     fn project_index_found() {
         let idx = ProjectIndex(vec![make_project("p1", "Alpha")]);
@@ -1096,6 +1115,18 @@ mod tests {
         assert_eq!(
             format_status_bar(&entry, &projects, &tasks),
             "Timekeeper 10m 00s"
+        );
+    }
+
+    #[test]
+    fn format_status_bar_appends_truncated_note() {
+        let projects = ProjectIndex(vec![make_project("p1", "Project")]);
+        let tasks = TaskIndex(vec![make_task("t1", "Task")]);
+        let entry = make_entry_with_note(Some("p1"), Some("t1"), 402, "1234567890123456789012345");
+
+        assert_eq!(
+            format_status_bar(&entry, &projects, &tasks),
+            "Task 6m 42s 12345678901234567890"
         );
     }
 
