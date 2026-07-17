@@ -429,18 +429,13 @@ pub fn status_bar_label(entry: &Entry, projects: &ProjectIndex, tasks: &TaskInde
 }
 
 pub fn format_status_bar(entry: &Entry, projects: &ProjectIndex, tasks: &TaskIndex) -> String {
-    let mut status = format!(
-        "{} {}",
-        status_bar_label(entry, projects, tasks),
-        format_duration_with_seconds(entry.elapsed().num_seconds())
-    );
+    let label = status_bar_label(entry, projects, tasks);
+    let duration = format_duration_with_seconds(entry.elapsed().num_seconds());
 
-    if let Some(note) = entry.note.as_deref().filter(|note| !note.is_empty()) {
-        status.push(' ');
-        status.push_str(&truncate_chars(note, 20));
+    match entry.note.as_deref().filter(|note| !note.is_empty()) {
+        Some(note) => format!("{} ({}) {}", label, truncate_chars(note, 20), duration),
+        None => format!("{} {}", label, duration),
     }
-
-    status
 }
 
 pub fn print_status_bar(entry: &Entry, projects: &ProjectIndex, tasks: &TaskIndex) {
@@ -1119,14 +1114,14 @@ mod tests {
     }
 
     #[test]
-    fn format_status_bar_appends_truncated_note() {
+    fn format_status_bar_puts_truncated_note_before_duration() {
         let projects = ProjectIndex(vec![make_project("p1", "Project")]);
         let tasks = TaskIndex(vec![make_task("t1", "Task")]);
         let entry = make_entry_with_note(Some("p1"), Some("t1"), 402, "1234567890123456789012345");
 
         assert_eq!(
             format_status_bar(&entry, &projects, &tasks),
-            "Task 6m 42s 12345678901234567890"
+            "Task (12345678901234567890) 6m 42s"
         );
     }
 
