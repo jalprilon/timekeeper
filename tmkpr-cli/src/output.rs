@@ -41,6 +41,10 @@ fn truncate_chars(s: &str, max_chars: usize) -> String {
     s.chars().take(max_chars).collect()
 }
 
+fn first_word(s: &str) -> String {
+    s.split_whitespace().next().unwrap_or(s).to_string()
+}
+
 fn format_duration_with_seconds(secs: i64) -> String {
     let secs = secs.max(0);
     let h = secs / 3600;
@@ -428,13 +432,21 @@ pub fn status_bar_label(entry: &Entry, projects: &ProjectIndex, tasks: &TaskInde
     truncate_chars(&label, 20)
 }
 
+fn status_bar_note_label(entry: &Entry, projects: &ProjectIndex, tasks: &TaskIndex) -> String {
+    first_word(&status_bar_label(entry, projects, tasks))
+}
+
 pub fn format_status_bar(entry: &Entry, projects: &ProjectIndex, tasks: &TaskIndex) -> String {
-    let label = status_bar_label(entry, projects, tasks);
     let duration = format_duration_with_seconds(entry.elapsed().num_seconds());
 
     match entry.note.as_deref().filter(|note| !note.is_empty()) {
-        Some(note) => format!("{} ({}) {}", label, truncate_chars(note, 20), duration),
-        None => format!("{} {}", label, duration),
+        Some(note) => format!(
+            "{} ({}) {}",
+            status_bar_note_label(entry, projects, tasks),
+            truncate_chars(note, 20),
+            duration
+        ),
+        None => format!("{} {}", status_bar_label(entry, projects, tasks), duration),
     }
 }
 
@@ -1116,12 +1128,24 @@ mod tests {
     #[test]
     fn format_status_bar_puts_truncated_note_before_duration() {
         let projects = ProjectIndex(vec![make_project("p1", "Project")]);
-        let tasks = TaskIndex(vec![make_task("t1", "Task")]);
+        let tasks = TaskIndex(vec![make_task("t1", "Task With Spaces")]);
         let entry = make_entry_with_note(Some("p1"), Some("t1"), 402, "1234567890123456789012345");
 
         assert_eq!(
             format_status_bar(&entry, &projects, &tasks),
             "Task (12345678901234567890) 6m 42s"
+        );
+    }
+
+    #[test]
+    fn format_status_bar_uses_first_project_word_when_note_has_no_task() {
+        let projects = ProjectIndex(vec![make_project("p1", "Project With Spaces")]);
+        let tasks = TaskIndex(vec![]);
+        let entry = make_entry_with_note(Some("p1"), None, 402, "note");
+
+        assert_eq!(
+            format_status_bar(&entry, &projects, &tasks),
+            "Project (note) 6m 42s"
         );
     }
 
