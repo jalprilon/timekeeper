@@ -441,12 +441,16 @@ pub fn format_status_bar(entry: &Entry, projects: &ProjectIndex, tasks: &TaskInd
 
     match entry.note.as_deref().filter(|note| !note.is_empty()) {
         Some(note) => format!(
-            "{} ({}) {}",
+            "● {} ({}) {}",
             status_bar_note_label(entry, projects, tasks),
             truncate_chars(note, 20),
             duration
         ),
-        None => format!("{} {}", status_bar_label(entry, projects, tasks), duration),
+        None => format!(
+            "● {} {}",
+            status_bar_label(entry, projects, tasks),
+            duration
+        ),
     }
 }
 
@@ -1109,7 +1113,7 @@ mod tests {
 
         assert_eq!(
             format_status_bar(&entry, &projects, &tasks),
-            "12345678901234567890 1h 23m 00s"
+            "● 12345678901234567890 1h 23m 00s"
         );
     }
 
@@ -1121,7 +1125,7 @@ mod tests {
 
         assert_eq!(
             format_status_bar(&entry, &projects, &tasks),
-            "Timekeeper 10m 00s"
+            "● Timekeeper 10m 00s"
         );
     }
 
@@ -1133,7 +1137,7 @@ mod tests {
 
         assert_eq!(
             format_status_bar(&entry, &projects, &tasks),
-            "Task (12345678901234567890) 6m 42s"
+            "● Task (12345678901234567890) 6m 42s"
         );
     }
 
@@ -1145,7 +1149,7 @@ mod tests {
 
         assert_eq!(
             format_status_bar(&entry, &projects, &tasks),
-            "Project (note) 6m 42s"
+            "● Project (note) 6m 42s"
         );
     }
 

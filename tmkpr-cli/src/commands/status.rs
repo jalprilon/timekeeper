@@ -64,7 +64,7 @@ fn idle_bar_text(storage: &dyn Storage, user_id: &str) -> Result<String> {
                 output::status_bar_label(&entry, &projects, &TaskIndex(tasks))
             ))
         }
-        None => Ok("Sin tarea activa".to_string()),
+        None => Ok("○ Sin tarea activa".to_string()),
     }
 }
 
@@ -100,7 +100,7 @@ mod tests {
 
         assert_eq!(
             idle_bar_text(&storage, LOCAL_USER_ID).unwrap(),
-            "Sin tarea activa"
+            "○ Sin tarea activa"
         );
     }
 
